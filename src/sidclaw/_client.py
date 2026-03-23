@@ -7,6 +7,7 @@ import anyio
 import httpx
 
 from ._base_client import BaseClient
+from ._constants import DEFAULT_BASE_URL, DEFAULT_MAX_RETRIES, DEFAULT_TIMEOUT
 from ._errors import ApprovalExpiredError, ApprovalTimeoutError
 from ._types import (
     ApprovalStatusResponse,
@@ -20,8 +21,22 @@ from ._types import (
 class SidClaw(BaseClient):
     """Synchronous SidClaw client."""
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        base_url: str = DEFAULT_BASE_URL,
+        agent_id: str,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        timeout: float = DEFAULT_TIMEOUT,
+    ) -> None:
+        super().__init__(
+            api_key=api_key,
+            base_url=base_url,
+            agent_id=agent_id,
+            max_retries=max_retries,
+            timeout=timeout,
+        )
         self._http = httpx.Client(
             base_url=self.base_url,
             headers=self._build_headers(),
@@ -103,8 +118,22 @@ class SidClaw(BaseClient):
 class AsyncSidClaw(BaseClient):
     """Asynchronous SidClaw client."""
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
+    def __init__(
+        self,
+        *,
+        api_key: str,
+        base_url: str = DEFAULT_BASE_URL,
+        agent_id: str,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        timeout: float = DEFAULT_TIMEOUT,
+    ) -> None:
+        super().__init__(
+            api_key=api_key,
+            base_url=base_url,
+            agent_id=agent_id,
+            max_retries=max_retries,
+            timeout=timeout,
+        )
         self._http = httpx.AsyncClient(
             base_url=self.base_url,
             headers=self._build_headers(),
