@@ -30,7 +30,10 @@ from .interceptor import derive_resource_scope, find_mapping
 logger = logging.getLogger("sidclaw.mcp")
 
 try:
-    from mcp.client import ClientSession
+    try:
+        from mcp.client.session import ClientSession
+    except ImportError:
+        from mcp.client import ClientSession  # Fallback for older MCP SDK versions
     from mcp.client.stdio import StdioServerParameters, stdio_client
     from mcp.server import Server
     from mcp.server.stdio import stdio_server
