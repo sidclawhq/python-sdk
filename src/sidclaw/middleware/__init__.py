@@ -29,6 +29,14 @@ from .claude_agent_sdk import (
     govern_claude_agent_tools,
     govern_claude_agent_tools_async,
 )
+from .nemoclaw import (
+    NemoClawGovernanceConfig,
+    create_nemoclaw_proxy,
+    govern_nemoclaw_tool,
+    govern_nemoclaw_tool_async,
+    govern_nemoclaw_tools,
+    govern_nemoclaw_tools_async,
+)
 
 __all__ = [
     "GovernanceConfig",
@@ -54,4 +62,10 @@ __all__ = [
     "govern_claude_agent_tool_async",
     "govern_claude_agent_tools",
     "govern_claude_agent_tools_async",
+    "NemoClawGovernanceConfig",
+    "create_nemoclaw_proxy",
+    "govern_nemoclaw_tool",
+    "govern_nemoclaw_tool_async",
+    "govern_nemoclaw_tools",
+    "govern_nemoclaw_tools_async",
 ]
