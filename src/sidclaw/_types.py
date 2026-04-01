@@ -10,7 +10,7 @@ DataClassification = Literal["public", "internal", "confidential", "restricted"]
 PolicyEffect = Literal["allow", "approval_required", "deny"]
 ApprovalStatus = Literal["pending", "approved", "denied", "expired"]
 RiskClassification = Literal["low", "medium", "high", "critical"]
-TraceOutcome = Literal["pending", "executed", "blocked", "denied", "completed_with_approval", "expired"]
+TraceOutcome = Literal["in_progress", "executed", "blocked", "denied", "completed_with_approval", "expired"]
 
 
 # === Request types (TypedDict — lightweight, no runtime overhead) ===
