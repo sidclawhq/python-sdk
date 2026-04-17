@@ -14,6 +14,7 @@ from ._types import (
     EvaluateParams,
     EvaluateResponse,
     RecordOutcomeParams,
+    RecordTelemetryParams,
     WaitForApprovalOptions,
 )
 
@@ -114,6 +115,12 @@ class SidClaw(BaseClient):
         """Record the outcome of an action after execution."""
         self._request("POST", f"/api/v1/traces/{trace_id}/outcome", json=dict(params))
 
+    def record_telemetry(self, trace_id: str, params: RecordTelemetryParams) -> None:
+        """Attach token usage or cost data to a trace AFTER its outcome has been
+        recorded. Used for late-arriving LLM telemetry (e.g. from a Stop hook).
+        """
+        self._request("PATCH", f"/api/v1/traces/{trace_id}/telemetry", json=dict(params))
+
 
 class AsyncSidClaw(BaseClient):
     """Asynchronous SidClaw client."""
@@ -210,3 +217,9 @@ class AsyncSidClaw(BaseClient):
     async def record_outcome(self, trace_id: str, params: RecordOutcomeParams) -> None:
         """Record the outcome of an action after execution."""
         await self._request("POST", f"/api/v1/traces/{trace_id}/outcome", json=dict(params))
+
+    async def record_telemetry(self, trace_id: str, params: RecordTelemetryParams) -> None:
+        """Attach token usage or cost data to a trace AFTER its outcome has been
+        recorded. Used for late-arriving LLM telemetry (e.g. from a Stop hook).
+        """
+        await self._request("PATCH", f"/api/v1/traces/{trace_id}/telemetry", json=dict(params))

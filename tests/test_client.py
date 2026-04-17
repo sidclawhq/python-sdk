@@ -233,6 +233,73 @@ class TestRecordOutcome:
         mock_api.post("/api/v1/traces/trace-1/outcome").mock(return_value=httpx.Response(200, json={}))
         client.record_outcome("trace-1", {"status": "error", "metadata": {"error": "Something failed"}})
 
+    def test_record_outcome_with_extended_telemetry_fields(self, client, mock_api):
+        route = mock_api.post("/api/v1/traces/trace-1/outcome").mock(
+            return_value=httpx.Response(200, json={})
+        )
+        client.record_outcome(
+            "trace-1",
+            {
+                "status": "success",
+                "outcome_summary": "Created 2 files, ran 12 tests",
+                "error_classification": "runtime",
+                "exit_code": 0,
+                "tokens_in": 1000,
+                "tokens_out": 500,
+                "tokens_cache_read": 200,
+                "model": "claude-opus-4-7",
+                "cost_estimate": 0.045,
+            },
+        )
+        import json as _json
+
+        body = _json.loads(route.calls[0].request.content)
+        assert body["status"] == "success"
+        assert body["outcome_summary"] == "Created 2 files, ran 12 tests"
+        assert body["error_classification"] == "runtime"
+        assert body["exit_code"] == 0
+        assert body["tokens_in"] == 1000
+        assert body["tokens_out"] == 500
+        assert body["tokens_cache_read"] == 200
+        assert body["model"] == "claude-opus-4-7"
+        assert body["cost_estimate"] == 0.045
+
+
+class TestRecordTelemetry:
+    def test_record_telemetry_sends_patch(self, client, mock_api):
+        route = mock_api.patch("/api/v1/traces/trace-1/telemetry").mock(
+            return_value=httpx.Response(200, json={})
+        )
+        client.record_telemetry(
+            "trace-1",
+            {
+                "tokens_in": 2000,
+                "tokens_out": 800,
+                "tokens_cache_read": 400,
+                "model": "claude-sonnet-4-6",
+                "cost_estimate": 0.018,
+                "outcome_summary": "Refactored auth module",
+            },
+        )
+        assert route.call_count == 1
+        import json as _json
+
+        body = _json.loads(route.calls[0].request.content)
+        assert body["tokens_in"] == 2000
+        assert body["model"] == "claude-sonnet-4-6"
+        assert body["outcome_summary"] == "Refactored auth module"
+
+    def test_record_telemetry_accepts_partial_payload(self, client, mock_api):
+        route = mock_api.patch("/api/v1/traces/trace-1/telemetry").mock(
+            return_value=httpx.Response(200, json={})
+        )
+        client.record_telemetry("trace-1", {"cost_estimate": 0.01})
+        assert route.call_count == 1
+        import json as _json
+
+        body = _json.loads(route.calls[0].request.content)
+        assert body == {"cost_estimate": 0.01}
+
 
 class TestWaitForApproval:
     def test_wait_for_approval_approved(self, client, mock_api):

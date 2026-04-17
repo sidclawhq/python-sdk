@@ -16,13 +16,16 @@ from ._types import (
     ApprovalStatus,
     ApprovalStatusResponse,
     DataClassification,
+    ErrorClassification,
     EvaluateParams,
     EvaluateResponse,
     PolicyEffect,
     RecordOutcomeParams,
+    RecordTelemetryParams,
     RiskClassification,
     WaitForApprovalOptions,
 )
+from .cost import MODEL_PRICING, ModelPricing, estimate_cost, register_model_pricing
 from .webhooks import verify_webhook_signature
 
 __all__ = [
@@ -31,12 +34,14 @@ __all__ = [
     "EvaluateParams",
     "EvaluateResponse",
     "RecordOutcomeParams",
+    "RecordTelemetryParams",
     "ApprovalStatusResponse",
     "WaitForApprovalOptions",
     "DataClassification",
     "PolicyEffect",
     "ApprovalStatus",
     "RiskClassification",
+    "ErrorClassification",
     "SidClawError",
     "APIError",
     "ActionDeniedError",
@@ -46,5 +51,9 @@ __all__ = [
     "AuthenticationError",
     "PlanLimitError",
     "verify_webhook_signature",
+    "MODEL_PRICING",
+    "ModelPricing",
+    "estimate_cost",
+    "register_model_pricing",
     "__version__",
 ]

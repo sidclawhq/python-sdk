@@ -24,9 +24,32 @@ class EvaluateParams(TypedDict, total=False):
     context: dict[str, Any]  # optional
 
 
+ErrorClassification = Literal["timeout", "permission", "not_found", "runtime"]
+
+
 class RecordOutcomeParams(TypedDict, total=False):
     status: Literal["success", "error"]  # required
     metadata: dict[str, Any]  # optional
+    # Added 2026-04-16 — hooks + cost-attribution telemetry. All optional.
+    outcome_summary: str
+    error_classification: ErrorClassification
+    exit_code: int
+    tokens_in: int
+    tokens_out: int
+    tokens_cache_read: int
+    model: str
+    cost_estimate: float
+
+
+class RecordTelemetryParams(TypedDict, total=False):
+    """Late-arriving LLM telemetry attached to a trace after its outcome."""
+
+    tokens_in: int
+    tokens_out: int
+    tokens_cache_read: int
+    model: str
+    cost_estimate: float
+    outcome_summary: str
 
 
 class ApprovalDecisionParams(TypedDict):
