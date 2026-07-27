@@ -23,13 +23,12 @@ from __future__ import annotations
 
 import functools
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from .._client import AsyncSidClaw, SidClaw
-from .._errors import ActionDeniedError, ApprovalExpiredError, ApprovalTimeoutError
+from .._errors import ActionDeniedError
 from .._types import DataClassification, EvaluateParams, EvaluateResponse
 from ._base import record_outcome_async, record_outcome_sync
-
 
 # ---------------------------------------------------------------------------
 # Config
@@ -40,7 +39,7 @@ from ._base import record_outcome_async, record_outcome_sync
 class GoogleADKGovernanceConfig:
     """Configuration for Google ADK governance middleware."""
 
-    data_classification: Dict[str, str] = field(default_factory=dict)
+    data_classification: dict[str, str] = field(default_factory=dict)
     """Override data classification per tool name (e.g. {"send_email": "confidential"})."""
 
     default_classification: DataClassification = "internal"
@@ -66,7 +65,7 @@ class GoogleADKGovernanceConfig:
 
 def _resolve_classification(
     tool_name: str,
-    config: Optional[GoogleADKGovernanceConfig],
+    config: GoogleADKGovernanceConfig | None,
 ) -> DataClassification:
     if config and tool_name in config.data_classification:
         return config.data_classification[tool_name]  # type: ignore[return-value]
@@ -79,7 +78,7 @@ def _evaluate_sync(
     client: SidClaw,
     tool_name: str,
     params: Any,
-    config: Optional[GoogleADKGovernanceConfig],
+    config: GoogleADKGovernanceConfig | None,
 ) -> EvaluateResponse:
     """Evaluate governance synchronously. Handles allow/deny/approval_required."""
     classification = _resolve_classification(tool_name, config)
@@ -139,7 +138,7 @@ async def _evaluate_async(
     client: AsyncSidClaw,
     tool_name: str,
     params: Any,
-    config: Optional[GoogleADKGovernanceConfig],
+    config: GoogleADKGovernanceConfig | None,
 ) -> EvaluateResponse:
     """Evaluate governance asynchronously. Handles allow/deny/approval_required."""
     classification = _resolve_classification(tool_name, config)
@@ -203,7 +202,7 @@ async def _evaluate_async(
 def govern_google_adk_tool(
     client: SidClaw,
     tool: Any,
-    config: Optional[GoogleADKGovernanceConfig] = None,
+    config: GoogleADKGovernanceConfig | None = None,
 ) -> Any:
     """Wrap a Google ADK tool with SidClaw governance.
 
@@ -272,7 +271,7 @@ def govern_google_adk_tool(
 def govern_google_adk_tool_async(
     client: AsyncSidClaw,
     tool: Any,
-    config: Optional[GoogleADKGovernanceConfig] = None,
+    config: GoogleADKGovernanceConfig | None = None,
 ) -> Any:
     """Wrap a Google ADK tool with async SidClaw governance.
 
@@ -331,9 +330,9 @@ def govern_google_adk_tool_async(
 
 def govern_google_adk_tools(
     client: SidClaw,
-    tools: List[Any],
-    config: Optional[GoogleADKGovernanceConfig] = None,
-) -> List[Any]:
+    tools: list[Any],
+    config: GoogleADKGovernanceConfig | None = None,
+) -> list[Any]:
     """Wrap multiple Google ADK tools with SidClaw governance.
 
     Convenience function that calls :func:`govern_google_adk_tool` for each tool.
@@ -343,9 +342,9 @@ def govern_google_adk_tools(
 
 def govern_google_adk_tools_async(
     client: AsyncSidClaw,
-    tools: List[Any],
-    config: Optional[GoogleADKGovernanceConfig] = None,
-) -> List[Any]:
+    tools: list[Any],
+    config: GoogleADKGovernanceConfig | None = None,
+) -> list[Any]:
     """Wrap multiple Google ADK tools with async SidClaw governance.
 
     Convenience function that calls :func:`govern_google_adk_tool_async` for each tool.

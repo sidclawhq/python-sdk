@@ -21,16 +21,14 @@ Usage (async):
 """
 from __future__ import annotations
 
-import copy
-import functools
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Sequence
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import Any
 
 from .._client import AsyncSidClaw, SidClaw
-from .._errors import ActionDeniedError, ApprovalExpiredError, ApprovalTimeoutError
+from .._errors import ActionDeniedError
 from .._types import DataClassification, EvaluateParams, EvaluateResponse
 from ._base import record_outcome_async, record_outcome_sync
-
 
 # ---------------------------------------------------------------------------
 # Config
@@ -47,7 +45,7 @@ class ClaudeAgentGovernanceConfig:
     resource_scope: str = "claude_agent"
     """Resource scope sent to the policy engine."""
 
-    target_integration: Optional[str] = None
+    target_integration: str | None = None
     """Target integration name override. Defaults to the tool name."""
 
     wait_for_approval: bool = True
@@ -69,7 +67,7 @@ def _evaluate_sync(
     client: SidClaw,
     tool_name: str,
     args: Any,
-    config: Optional[ClaudeAgentGovernanceConfig],
+    config: ClaudeAgentGovernanceConfig | None,
 ) -> EvaluateResponse:
     """Evaluate governance synchronously. Handles allow/deny/approval_required."""
     cfg = config or ClaudeAgentGovernanceConfig()
@@ -126,7 +124,7 @@ async def _evaluate_async(
     client: AsyncSidClaw,
     tool_name: str,
     args: Any,
-    config: Optional[ClaudeAgentGovernanceConfig],
+    config: ClaudeAgentGovernanceConfig | None,
 ) -> EvaluateResponse:
     """Evaluate governance asynchronously. Handles allow/deny/approval_required."""
     cfg = config or ClaudeAgentGovernanceConfig()
@@ -195,14 +193,14 @@ class GovernedClaudeAgentTool:
         self,
         client: SidClaw,
         tool: Any,
-        config: Optional[ClaudeAgentGovernanceConfig] = None,
+        config: ClaudeAgentGovernanceConfig | None = None,
     ) -> None:
         self._client = client
         self._tool = tool
         self._config = config
         # Preserve duck-typed attributes
         self.name: str = getattr(tool, "name", "unknown")
-        self.description: Optional[str] = getattr(tool, "description", None)
+        self.description: str | None = getattr(tool, "description", None)
         self.parameters: Any = getattr(tool, "parameters", None)
 
     def execute(self, *args: Any, **kwargs: Any) -> Any:
@@ -232,14 +230,14 @@ class GovernedClaudeAgentToolAsync:
         self,
         client: AsyncSidClaw,
         tool: Any,
-        config: Optional[ClaudeAgentGovernanceConfig] = None,
+        config: ClaudeAgentGovernanceConfig | None = None,
     ) -> None:
         self._client = client
         self._tool = tool
         self._config = config
         # Preserve duck-typed attributes
         self.name: str = getattr(tool, "name", "unknown")
-        self.description: Optional[str] = getattr(tool, "description", None)
+        self.description: str | None = getattr(tool, "description", None)
         self.parameters: Any = getattr(tool, "parameters", None)
 
     async def execute(self, *args: Any, **kwargs: Any) -> Any:
@@ -269,7 +267,7 @@ class GovernedClaudeAgentToolAsync:
 def govern_claude_agent_tool(
     client: SidClaw,
     tool: Any,
-    config: Optional[ClaudeAgentGovernanceConfig] = None,
+    config: ClaudeAgentGovernanceConfig | None = None,
 ) -> GovernedClaudeAgentTool:
     """Wrap a Claude Agent SDK tool with SidClaw governance (sync).
 
@@ -301,7 +299,7 @@ def govern_claude_agent_tool(
 def govern_claude_agent_tool_async(
     client: AsyncSidClaw,
     tool: Any,
-    config: Optional[ClaudeAgentGovernanceConfig] = None,
+    config: ClaudeAgentGovernanceConfig | None = None,
 ) -> GovernedClaudeAgentToolAsync:
     """Wrap a Claude Agent SDK tool with SidClaw governance (async).
 
@@ -336,13 +334,13 @@ def govern_claude_agent_tool_async(
 def govern_claude_agent_tools(
     client: SidClaw,
     tools: Sequence[Any],
-    config: Optional[ClaudeAgentGovernanceConfig] = None,
-) -> List[GovernedClaudeAgentTool]:
+    config: ClaudeAgentGovernanceConfig | None = None,
+) -> list[GovernedClaudeAgentTool]:
     """Wrap all tools in a sequence with SidClaw governance (sync).
 
     Uses each tool's name as the target integration unless overridden in config.
     """
-    results: List[GovernedClaudeAgentTool] = []
+    results: list[GovernedClaudeAgentTool] = []
     for tool in tools:
         tool_config = ClaudeAgentGovernanceConfig(
             data_classification=config.data_classification if config else "internal",
@@ -359,13 +357,13 @@ def govern_claude_agent_tools(
 def govern_claude_agent_tools_async(
     client: AsyncSidClaw,
     tools: Sequence[Any],
-    config: Optional[ClaudeAgentGovernanceConfig] = None,
-) -> List[GovernedClaudeAgentToolAsync]:
+    config: ClaudeAgentGovernanceConfig | None = None,
+) -> list[GovernedClaudeAgentToolAsync]:
     """Wrap all tools in a sequence with SidClaw governance (async).
 
     Uses each tool's name as the target integration unless overridden in config.
     """
-    results: List[GovernedClaudeAgentToolAsync] = []
+    results: list[GovernedClaudeAgentToolAsync] = []
     for tool in tools:
         tool_config = ClaudeAgentGovernanceConfig(
             data_classification=config.data_classification if config else "internal",

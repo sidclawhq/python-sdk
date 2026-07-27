@@ -21,7 +21,7 @@ Usage (async):
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from .._client import AsyncSidClaw, SidClaw
 from .._types import DataClassification
@@ -37,7 +37,7 @@ def govern_llamaindex_tool(
     client: SidClaw,
     tool: Any,
     *,
-    target_integration: Optional[str] = None,
+    target_integration: str | None = None,
     resource_scope: str = "*",
     data_classification: DataClassification = "internal",
 ) -> Any:
@@ -124,7 +124,7 @@ def govern_llamaindex_tool_async(
     client: AsyncSidClaw,
     tool: Any,
     *,
-    target_integration: Optional[str] = None,
+    target_integration: str | None = None,
     resource_scope: str = "*",
     data_classification: DataClassification = "internal",
 ) -> Any:

@@ -21,14 +21,14 @@ Usage (async):
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any
 
 from .._client import AsyncSidClaw, SidClaw
-from .._errors import ActionDeniedError, ApprovalExpiredError, ApprovalTimeoutError
+from .._errors import ActionDeniedError
 from .._types import DataClassification, EvaluateParams, EvaluateResponse
 from ._base import record_outcome_async, record_outcome_sync
-
 
 # ---------------------------------------------------------------------------
 # Config
@@ -39,7 +39,7 @@ from ._base import record_outcome_async, record_outcome_sync
 class NemoClawGovernanceConfig:
     """Configuration for NemoClaw governance middleware."""
 
-    data_classification: Union[Dict[str, str], str, None] = None
+    data_classification: dict[str, str] | str | None = None
     """Data classification: a dict mapping tool names to classifications,
     a single string for all tools, or None (uses default_classification)."""
 
@@ -59,7 +59,7 @@ class NemoClawGovernanceConfig:
     approval_poll_interval_seconds: float = 2.0
     """Polling interval in seconds when waiting for approval."""
 
-    sandbox_name: Optional[str] = None
+    sandbox_name: str | None = None
     """Optional sandbox name included in governance context."""
 
 
@@ -70,7 +70,7 @@ class NemoClawGovernanceConfig:
 
 def _resolve_classification(
     tool_name: str,
-    config: Optional[NemoClawGovernanceConfig],
+    config: NemoClawGovernanceConfig | None,
 ) -> DataClassification:
     """Resolve the data classification for a tool."""
     if config is None:
@@ -96,7 +96,7 @@ def _resolve_classification(
 def _build_context(
     tool_name: str,
     params: Any,
-    config: Optional[NemoClawGovernanceConfig],
+    config: NemoClawGovernanceConfig | None,
 ) -> dict[str, Any]:
     """Build the governance context dict."""
     ctx: dict[str, Any] = {
@@ -113,7 +113,7 @@ def _evaluate_sync(
     client: SidClaw,
     tool_name: str,
     params: Any,
-    config: Optional[NemoClawGovernanceConfig],
+    config: NemoClawGovernanceConfig | None,
 ) -> EvaluateResponse:
     """Evaluate governance synchronously. Handles allow/deny/approval_required."""
     cfg = config or NemoClawGovernanceConfig()
@@ -167,7 +167,7 @@ async def _evaluate_async(
     client: AsyncSidClaw,
     tool_name: str,
     params: Any,
-    config: Optional[NemoClawGovernanceConfig],
+    config: NemoClawGovernanceConfig | None,
 ) -> EvaluateResponse:
     """Evaluate governance asynchronously. Handles allow/deny/approval_required."""
     cfg = config or NemoClawGovernanceConfig()
@@ -233,14 +233,14 @@ class GovernedNemoClawTool:
         self,
         client: SidClaw,
         tool: Any,
-        config: Optional[NemoClawGovernanceConfig] = None,
+        config: NemoClawGovernanceConfig | None = None,
     ) -> None:
         self._client = client
         self._tool = tool
         self._config = config
         # Preserve duck-typed attributes
         self.name: str = getattr(tool, "name", "unknown")
-        self.description: Optional[str] = getattr(tool, "description", None)
+        self.description: str | None = getattr(tool, "description", None)
         self.parameters: Any = getattr(tool, "parameters", None)
 
     def execute(self, *args: Any, **kwargs: Any) -> Any:
@@ -269,14 +269,14 @@ class GovernedNemoClawToolAsync:
         self,
         client: AsyncSidClaw,
         tool: Any,
-        config: Optional[NemoClawGovernanceConfig] = None,
+        config: NemoClawGovernanceConfig | None = None,
     ) -> None:
         self._client = client
         self._tool = tool
         self._config = config
         # Preserve duck-typed attributes
         self.name: str = getattr(tool, "name", "unknown")
-        self.description: Optional[str] = getattr(tool, "description", None)
+        self.description: str | None = getattr(tool, "description", None)
         self.parameters: Any = getattr(tool, "parameters", None)
 
     async def execute(self, *args: Any, **kwargs: Any) -> Any:
@@ -306,7 +306,7 @@ class GovernedNemoClawToolAsync:
 def govern_nemoclaw_tool(
     client: SidClaw,
     tool: Any,
-    config: Optional[NemoClawGovernanceConfig] = None,
+    config: NemoClawGovernanceConfig | None = None,
 ) -> GovernedNemoClawTool:
     """Wrap a NemoClaw tool with SidClaw governance (sync).
 
@@ -338,7 +338,7 @@ def govern_nemoclaw_tool(
 def govern_nemoclaw_tool_async(
     client: AsyncSidClaw,
     tool: Any,
-    config: Optional[NemoClawGovernanceConfig] = None,
+    config: NemoClawGovernanceConfig | None = None,
 ) -> GovernedNemoClawToolAsync:
     """Wrap a NemoClaw tool with SidClaw governance (async).
 
@@ -373,8 +373,8 @@ def govern_nemoclaw_tool_async(
 def govern_nemoclaw_tools(
     client: SidClaw,
     tools: Sequence[Any],
-    config: Optional[NemoClawGovernanceConfig] = None,
-) -> List[GovernedNemoClawTool]:
+    config: NemoClawGovernanceConfig | None = None,
+) -> list[GovernedNemoClawTool]:
     """Wrap all NemoClaw tools in a sequence with SidClaw governance (sync).
 
     Uses the shared config for all tools. Per-tool data classification is
@@ -386,8 +386,8 @@ def govern_nemoclaw_tools(
 def govern_nemoclaw_tools_async(
     client: AsyncSidClaw,
     tools: Sequence[Any],
-    config: Optional[NemoClawGovernanceConfig] = None,
-) -> List[GovernedNemoClawToolAsync]:
+    config: NemoClawGovernanceConfig | None = None,
+) -> list[GovernedNemoClawToolAsync]:
     """Wrap all NemoClaw tools in a sequence with SidClaw governance (async).
 
     Uses the shared config for all tools. Per-tool data classification is

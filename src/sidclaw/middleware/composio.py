@@ -23,17 +23,14 @@ Usage (async):
 """
 from __future__ import annotations
 
-import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Tuple
-
-import anyio
+from typing import Any
 
 from .._client import AsyncSidClaw, SidClaw
-from .._errors import ActionDeniedError, ApprovalExpiredError, ApprovalTimeoutError
+from .._errors import ActionDeniedError
 from .._types import DataClassification, EvaluateParams, EvaluateResponse
 from ._base import record_outcome_async, record_outcome_sync
-
 
 # ---------------------------------------------------------------------------
 # Config
@@ -44,7 +41,7 @@ from ._base import record_outcome_async, record_outcome_sync
 class ComposioGovernanceConfig:
     """Configuration for Composio governance middleware."""
 
-    data_classification: Dict[str, str] = field(default_factory=dict)
+    data_classification: dict[str, str] = field(default_factory=dict)
     """Override data classification per Composio toolkit slug (e.g. {"SALESFORCE": "confidential"})."""
 
     default_classification: DataClassification = "internal"
@@ -68,7 +65,7 @@ class ComposioGovernanceConfig:
 # ---------------------------------------------------------------------------
 
 
-def map_composio_slug(slug: str) -> Tuple[str, str]:
+def map_composio_slug(slug: str) -> tuple[str, str]:
     """Map a Composio tool slug to ``(operation, target_integration)``.
 
     Convention:
@@ -97,7 +94,7 @@ def map_composio_slug(slug: str) -> Tuple[str, str]:
 
 def _resolve_classification(
     toolkit_slug: str,
-    config: Optional[ComposioGovernanceConfig],
+    config: ComposioGovernanceConfig | None,
 ) -> DataClassification:
     upper = toolkit_slug.upper()
     if config and upper in config.data_classification:
@@ -111,7 +108,7 @@ def _evaluate_sync(
     client: SidClaw,
     slug: str,
     params: Any,
-    config: Optional[ComposioGovernanceConfig],
+    config: ComposioGovernanceConfig | None,
 ) -> EvaluateResponse:
     """Evaluate governance synchronously. Handles allow/deny/approval_required."""
     operation, target_integration = map_composio_slug(slug)
@@ -172,7 +169,7 @@ async def _evaluate_async(
     client: AsyncSidClaw,
     slug: str,
     params: Any,
-    config: Optional[ComposioGovernanceConfig],
+    config: ComposioGovernanceConfig | None,
 ) -> EvaluateResponse:
     """Evaluate governance asynchronously. Handles allow/deny/approval_required."""
     operation, target_integration = map_composio_slug(slug)
@@ -237,7 +234,7 @@ async def _evaluate_async(
 def govern_composio_execution(
     client: SidClaw,
     composio_client: Any,
-    config: Optional[ComposioGovernanceConfig] = None,
+    config: ComposioGovernanceConfig | None = None,
 ) -> Callable[..., Any]:
     """Return a governed wrapper around ``composio.tools.execute()``.
 
@@ -248,7 +245,13 @@ def govern_composio_execution(
     It evaluates governance before execution and records the outcome after.
     """
 
-    def execute(slug: str, *, user_id: str | None = None, arguments: dict[str, Any] | None = None, **kwargs: Any) -> Any:
+    def execute(
+        slug: str,
+        *,
+        user_id: str | None = None,
+        arguments: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
         params = {"user_id": user_id, "arguments": arguments or {}, **kwargs}
         decision = _evaluate_sync(client, slug, params, config)
 
@@ -271,7 +274,7 @@ def govern_composio_execution(
 def govern_composio_execution_async(
     client: AsyncSidClaw,
     composio_client: Any,
-    config: Optional[ComposioGovernanceConfig] = None,
+    config: ComposioGovernanceConfig | None = None,
 ) -> Callable[..., Any]:
     """Return an async governed wrapper around ``composio.tools.execute()``.
 
@@ -280,7 +283,13 @@ def govern_composio_execution_async(
         await execute(slug: str, *, user_id: str, arguments: dict, **kwargs) -> dict
     """
 
-    async def execute(slug: str, *, user_id: str | None = None, arguments: dict[str, Any] | None = None, **kwargs: Any) -> Any:
+    async def execute(
+        slug: str,
+        *,
+        user_id: str | None = None,
+        arguments: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
         params = {"user_id": user_id, "arguments": arguments or {}, **kwargs}
         decision = await _evaluate_async(client, slug, params, config)
 
@@ -307,8 +316,8 @@ def govern_composio_execution_async(
 
 def create_composio_governance_modifiers(
     client: SidClaw,
-    config: Optional[ComposioGovernanceConfig] = None,
-) -> Dict[str, Any]:
+    config: ComposioGovernanceConfig | None = None,
+) -> dict[str, Any]:
     """Create ``before_execute`` and ``after_execute`` modifier functions.
 
     These can be used with Composio's modifier/interceptor system::
@@ -316,7 +325,7 @@ def create_composio_governance_modifiers(
         modifiers = create_composio_governance_modifiers(client)
         result = composio.tools.execute("GITHUB_CREATE_ISSUE", ..., **modifiers)
     """
-    inflight: Dict[str, str] = {}  # toolSlug -> trace_id
+    inflight: dict[str, str] = {}  # toolSlug -> trace_id
 
     def before_execute(tool: str, toolkit: str, params: Any) -> Any:
         decision = _evaluate_sync(client, tool, params, config)
@@ -334,10 +343,10 @@ def create_composio_governance_modifiers(
 
 def create_composio_governance_modifiers_async(
     client: AsyncSidClaw,
-    config: Optional[ComposioGovernanceConfig] = None,
-) -> Dict[str, Any]:
+    config: ComposioGovernanceConfig | None = None,
+) -> dict[str, Any]:
     """Create async ``before_execute`` and ``after_execute`` modifier functions."""
-    inflight: Dict[str, str] = {}
+    inflight: dict[str, str] = {}
 
     async def before_execute(tool: str, toolkit: str, params: Any) -> Any:
         decision = await _evaluate_async(client, tool, params, config)
