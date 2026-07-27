@@ -16,7 +16,12 @@ def evaluate_governance_sync(
     data_classification: DataClassification = "internal",
     context: dict[str, Any] | None = None,
 ) -> EvaluateResponse:
-    """Evaluate an action and raise on deny/approval_required."""
+    """Evaluate an action, allowing it only on an explicit ``allow`` decision.
+
+    Raises ``ActionDeniedError`` on ``deny``, on ``approval_required``, and on
+    any other value — the guarded action proceeds only when the policy engine
+    explicitly permits it.
+    """
     decision = client.evaluate(
         EvaluateParams(
             operation=operation,
@@ -41,6 +46,20 @@ def evaluate_governance_sync(
             policy_rule_id=decision.policy_rule_id,
         )
 
+    # Fail closed on anything that is not an explicit allow.
+    #
+    # Enumerating only the bad decisions is a denylist: an unknown, misspelled,
+    # absent, null, or newly-added decision value fell through to ALLOW and the
+    # tool executed ungoverned. @sidclaw/sdk fixed this in 13c6ab3; this is the
+    # Python port of that fix. The authoritative set is PolicyEffectValues =
+    # ('allow', 'approval_required', 'deny').
+    if decision.decision != "allow":
+        raise ActionDeniedError(
+            f"Unexpected policy decision: {decision.decision!r}",
+            trace_id=decision.trace_id,
+            policy_rule_id=decision.policy_rule_id,
+        )
+
     return decision
 
 
@@ -53,7 +72,12 @@ async def evaluate_governance_async(
     data_classification: DataClassification = "internal",
     context: dict[str, Any] | None = None,
 ) -> EvaluateResponse:
-    """Async version: evaluate an action and raise on deny/approval_required."""
+    """Async version: allow only on an explicit ``allow`` decision.
+
+    Raises ``ActionDeniedError`` on ``deny``, on ``approval_required``, and on
+    any other value — the guarded action proceeds only when the policy engine
+    explicitly permits it.
+    """
     decision = await client.evaluate(
         EvaluateParams(
             operation=operation,
@@ -74,6 +98,20 @@ async def evaluate_governance_async(
     if decision.decision == "approval_required":
         raise ActionDeniedError(
             f"Approval required: {decision.reason}. Approval ID: {decision.approval_request_id}",
+            trace_id=decision.trace_id,
+            policy_rule_id=decision.policy_rule_id,
+        )
+
+    # Fail closed on anything that is not an explicit allow.
+    #
+    # Enumerating only the bad decisions is a denylist: an unknown, misspelled,
+    # absent, null, or newly-added decision value fell through to ALLOW and the
+    # tool executed ungoverned. @sidclaw/sdk fixed this in 13c6ab3; this is the
+    # Python port of that fix. The authoritative set is PolicyEffectValues =
+    # ('allow', 'approval_required', 'deny').
+    if decision.decision != "allow":
+        raise ActionDeniedError(
+            f"Unexpected policy decision: {decision.decision!r}",
             trace_id=decision.trace_id,
             policy_rule_id=decision.policy_rule_id,
         )
