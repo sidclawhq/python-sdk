@@ -21,7 +21,10 @@ Usage (async):
 """
 from __future__ import annotations
 
+import functools
 from typing import Any
+
+import anyio.to_thread
 
 from .._client import AsyncSidClaw, SidClaw
 from .._types import DataClassification
@@ -59,7 +62,9 @@ def govern_llamaindex_tool(
         data_classification: Data classification level (default: "internal").
 
     Returns:
-        The same tool with its ``call`` method wrapped.
+        The same tool with both ``call`` and ``acall`` wrapped. ``acall`` is
+        governed too because LlamaIndex agents use it for async execution;
+        wrapping only ``call`` left that path ungoverned.
     """
     integration = target_integration or tool.metadata.name
     original_call = tool.call
@@ -86,6 +91,45 @@ def govern_llamaindex_tool(
             raise
 
     tool.call = governed_call
+
+    # LlamaIndex agents invoke `acall` for async execution. This wrapper used to
+    # replace only `call`, so an async agent bypassed governance entirely — the
+    # tool ran with no evaluate, no approval, and no audit trace. The client here
+    # is synchronous, so its blocking HTTP calls run in a worker thread rather
+    # than stalling the event loop.
+    original_acall = getattr(tool, "acall", None)
+    if original_acall is not None:
+
+        async def governed_acall(*args: Any, **kwargs: Any) -> Any:
+            decision = await anyio.to_thread.run_sync(
+                functools.partial(
+                    evaluate_governance_sync,
+                    client,
+                    tool.metadata.name,
+                    target_integration=integration,
+                    resource_scope=resource_scope,
+                    data_classification=data_classification,
+                    context={
+                        "input": args[0] if args else kwargs,
+                        "tool_description": tool.metadata.description,
+                    },
+                )
+            )
+
+            try:
+                result = await original_acall(*args, **kwargs)
+                await anyio.to_thread.run_sync(
+                    functools.partial(record_outcome_sync, client, decision.trace_id)
+                )
+                return result
+            except Exception as e:
+                await anyio.to_thread.run_sync(
+                    functools.partial(record_outcome_sync, client, decision.trace_id, e)
+                )
+                raise
+
+        tool.acall = governed_acall
+
     return tool
 
 

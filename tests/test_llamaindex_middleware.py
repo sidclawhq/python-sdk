@@ -320,3 +320,97 @@ class TestGovernLlamaIndexToolsAsync:
     async def test_empty_list(self, async_client: AsyncSidClaw, mock_api: respx.MockRouter):
         governed = govern_llamaindex_tools_async(async_client, [])
         assert governed == []
+
+
+class TestSyncWrapperGovernsAcall:
+    """`govern_llamaindex_tool` wrapped only `call`, leaving `acall` ungoverned.
+
+    LlamaIndex agents invoke `acall` for async execution, so a tool governed by
+    the sync wrapper ran with no evaluate, no approval and no audit trace on
+    that path — a real bypass, not a latent one.
+    """
+
+    class _Meta:
+        name = "search_docs"
+        description = "search"
+
+    class _Tool:
+        def __init__(self):
+            self.metadata = TestSyncWrapperGovernsAcall._Meta()
+            self.sync_ran = False
+            self.async_ran = False
+
+        def call(self, *a, **k):
+            self.sync_ran = True
+            return "sync-result"
+
+        async def acall(self, *a, **k):
+            self.async_ran = True
+            return "async-result"
+
+    def _client(self, decision: str):
+        from unittest.mock import MagicMock
+
+        from sidclaw._types import EvaluateResponse
+
+        c = MagicMock()
+        c.evaluate.return_value = EvaluateResponse(
+            decision=decision,
+            trace_id="t-1",
+            approval_request_id=None,
+            reason="r",
+            policy_rule_id=None,
+        )
+        c.record_outcome.return_value = None
+        return c
+
+    async def test_acall_is_governed_and_denied(self):
+        from sidclaw._errors import ActionDeniedError
+        from sidclaw.middleware.llamaindex import govern_llamaindex_tool
+
+        tool = self._Tool()
+        client = self._client("deny")
+        governed = govern_llamaindex_tool(client, tool)
+
+        with pytest.raises(ActionDeniedError):
+            await governed.acall("query")
+
+        assert tool.async_ran is False, "acall executed despite a deny decision"
+        assert client.evaluate.called, "acall did not reach the policy engine at all"
+
+    async def test_acall_is_governed_and_allowed(self):
+        from sidclaw.middleware.llamaindex import govern_llamaindex_tool
+
+        tool = self._Tool()
+        client = self._client("allow")
+        governed = govern_llamaindex_tool(client, tool)
+
+        assert await governed.acall("query") == "async-result"
+        assert tool.async_ran is True
+        assert client.evaluate.called
+
+    def test_sync_call_still_governed(self):
+        from sidclaw._errors import ActionDeniedError
+        from sidclaw.middleware.llamaindex import govern_llamaindex_tool
+
+        tool = self._Tool()
+        client = self._client("deny")
+        governed = govern_llamaindex_tool(client, tool)
+
+        with pytest.raises(ActionDeniedError):
+            governed.call("query")
+        assert tool.sync_ran is False
+
+    def test_tool_without_acall_still_works(self):
+        """Not every LlamaIndex tool exposes acall — must not crash."""
+        from sidclaw.middleware.llamaindex import govern_llamaindex_tool
+
+        class NoAcall:
+            metadata = TestSyncWrapperGovernsAcall._Meta()
+
+            def call(self, *a, **k):
+                return "ok"
+
+        client = self._client("allow")
+        governed = govern_llamaindex_tool(client, NoAcall())
+        assert governed.call("q") == "ok"
