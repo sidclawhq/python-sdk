@@ -128,3 +128,95 @@ class TestKnownDecisionsStillBehave:
         fc_mock.post("/api/v1/evaluate").mock(return_value=httpx.Response(200, json=_body("allow")))
         result = await evaluate_governance_async(fc_async_client, "op")
         assert result.decision == "allow"
+
+
+class TestGenericDecoratorFailsClosed:
+    """``with_governance`` / ``async_with_governance`` carry their own decision
+    handling — they do NOT route through ``_base``, so patching ``_base`` alone
+    left the SDK's flagship decorator on a denylist. Two separate fall-throughs
+    existed here: the decision branch, and the approval-status branch.
+    """
+
+    def _decision(self, value: str, approval_id: str | None = None) -> EvaluateResponse:
+        return EvaluateResponse.model_construct(
+            decision=value,
+            trace_id="t-1",
+            approval_request_id=approval_id,
+            reason="r",
+            policy_rule_id=None,
+        )
+
+    @pytest.mark.parametrize("decision", ["quarantine", "log", "", "ALLOW"])
+    def test_sync_unknown_decision_does_not_execute(self, fc_client, monkeypatch, decision):
+        from sidclaw.middleware.generic import GovernanceConfig, with_governance
+
+        monkeypatch.setattr(fc_client, "evaluate", lambda _p: self._decision(decision))
+        ran = []
+
+        @with_governance(fc_client, GovernanceConfig(operation="op", target_integration="svc"))
+        def guarded() -> str:
+            ran.append(True)
+            return "executed"
+
+        with pytest.raises(ActionDeniedError, match="Unexpected policy decision"):
+            guarded()
+        assert ran == [], "guarded function executed despite a non-allow decision"
+
+    @pytest.mark.parametrize("status", ["pending", "escalated", ""])
+    def test_sync_unapproved_status_does_not_execute(self, fc_client, monkeypatch, status):
+        from sidclaw._types import ApprovalStatusResponse
+        from sidclaw.middleware.generic import GovernanceConfig, with_governance
+
+        monkeypatch.setattr(fc_client, "evaluate", lambda _p: self._decision("approval_required", "ap-1"))
+        monkeypatch.setattr(
+            fc_client,
+            "wait_for_approval",
+            lambda _id, *a, **k: ApprovalStatusResponse.model_construct(id="ap-1", status=status),
+        )
+        ran = []
+
+        @with_governance(fc_client, GovernanceConfig(operation="op", target_integration="svc"))
+        def guarded() -> str:
+            ran.append(True)
+            return "executed"
+
+        with pytest.raises(ActionDeniedError, match="Approval not granted"):
+            guarded()
+        assert ran == [], "guarded function executed without an explicit approval"
+
+    @pytest.mark.parametrize("decision", ["quarantine", "log", ""])
+    async def test_async_unknown_decision_does_not_execute(self, fc_async_client, monkeypatch, decision):
+        from sidclaw.middleware.generic import GovernanceConfig, async_with_governance
+
+        async def _fake(_p):
+            return self._decision(decision)
+
+        monkeypatch.setattr(fc_async_client, "evaluate", _fake)
+        ran = []
+
+        @async_with_governance(fc_async_client, GovernanceConfig(operation="op", target_integration="svc"))
+        async def guarded() -> str:
+            ran.append(True)
+            return "executed"
+
+        with pytest.raises(ActionDeniedError, match="Unexpected policy decision"):
+            await guarded()
+        assert ran == [], "guarded coroutine executed despite a non-allow decision"
+
+
+class TestPydanticAiDependencyFailsClosed:
+    """``GovernanceDependency.check`` also had its own inline denylist."""
+
+    @pytest.mark.parametrize("decision", ["quarantine", "log", "", "ALLOW"])
+    async def test_check_raises_on_non_allow(self, fc_async_client, monkeypatch, decision):
+        from sidclaw.middleware.pydantic_ai import GovernanceDependency
+
+        async def _fake(_p):
+            return EvaluateResponse.model_construct(
+                decision=decision, trace_id="t-1", approval_request_id=None, reason="r", policy_rule_id=None
+            )
+
+        monkeypatch.setattr(fc_async_client, "evaluate", _fake)
+        dep = GovernanceDependency(fc_async_client)
+        with pytest.raises(ActionDeniedError, match="Unexpected policy decision"):
+            await dep.check("op")

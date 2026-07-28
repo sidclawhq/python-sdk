@@ -64,6 +64,15 @@ class GovernanceDependency:
                 policy_rule_id=decision.policy_rule_id,
             )
 
+        # Fail closed on any decision that is not an explicit allow.
+        # See middleware/_base.py for the full rationale.
+        if decision.decision != "allow":
+            raise ActionDeniedError(
+                f"Unexpected policy decision: {decision.decision!r}",
+                trace_id=decision.trace_id,
+                policy_rule_id=decision.policy_rule_id,
+            )
+
         return decision
 
     async def record_success(self, trace_id: str) -> None:

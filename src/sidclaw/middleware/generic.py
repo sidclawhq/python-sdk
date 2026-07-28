@@ -68,6 +68,22 @@ def with_governance(
                     )
                 if approval.status == "expired":
                     raise ApprovalExpiredError(decision.approval_request_id, decision.trace_id)
+                # Allowlist: only an explicit approval proceeds. Enumerating the
+                # bad statuses let anything else — a 'pending' return, or a
+                # status added later — fall through and execute the call.
+                if approval.status != "approved":
+                    raise ActionDeniedError(
+                        f"Approval not granted: {approval.status}",
+                        trace_id=decision.trace_id,
+                    )
+            elif decision.decision != "allow":
+                # Fail closed on any decision that is not an explicit allow.
+                # See middleware/_base.py for the full rationale.
+                raise ActionDeniedError(
+                    f"Unexpected policy decision: {decision.decision!r}",
+                    trace_id=decision.trace_id,
+                    policy_rule_id=decision.policy_rule_id,
+                )
 
             try:
                 result = fn(*args, **kwargs)
@@ -122,6 +138,22 @@ def async_with_governance(
                     )
                 if approval.status == "expired":
                     raise ApprovalExpiredError(decision.approval_request_id, decision.trace_id)
+                # Allowlist: only an explicit approval proceeds. Enumerating the
+                # bad statuses let anything else — a 'pending' return, or a
+                # status added later — fall through and execute the call.
+                if approval.status != "approved":
+                    raise ActionDeniedError(
+                        f"Approval not granted: {approval.status}",
+                        trace_id=decision.trace_id,
+                    )
+            elif decision.decision != "allow":
+                # Fail closed on any decision that is not an explicit allow.
+                # See middleware/_base.py for the full rationale.
+                raise ActionDeniedError(
+                    f"Unexpected policy decision: {decision.decision!r}",
+                    trace_id=decision.trace_id,
+                    policy_rule_id=decision.policy_rule_id,
+                )
 
             try:
                 result = await fn(*args, **kwargs)
